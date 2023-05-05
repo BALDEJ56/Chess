@@ -1,0 +1,589 @@
+﻿#include <iostream>
+#include <string>
+
+enum Color {
+	black = 1,
+	white = 2,
+	noColor = 0,
+};
+
+Color RelplaceColor(Color color) {
+	switch (color) {
+	case black:
+		return white;
+	case white:
+		return black;
+	case noColor:
+		return noColor;
+	default:
+		return noColor;
+	}
+}
+
+
+class Point {
+private:
+	int string;
+	int column;
+public:
+	Point(int string_=-1, int column_ = -1) :string(string_), column(column_) {}
+	~Point() {}
+	void SetString(int string_) {
+		string = string_;
+	}
+	void SetColumn(int column_) {
+		column = column_;
+	}
+	int GetString() {
+		return string;
+	}
+	int GetColumn() {
+		return column;
+	}
+};
+
+class Figure {
+private:
+	Color color;
+	char name;
+public:
+	Figure( char name_ = 'Z', Color color_ = noColor) : color(color_), name(name_) {}
+	~Figure() {}
+	char GetName() {
+		return name;
+	}
+};
+
+class ChessFigure : public Figure {};
+
+class Queen : public ChessFigure {
+
+};
+
+class Cell {
+private:
+	Point coord = Point();
+	int hit = 0;
+	bool chekHit = false;
+	Color color;
+	Figure figure = Figure();
+
+public:
+	Cell(Point point,Color color_ = noColor) : coord(point), color(color_) {}
+	~Cell() {}
+
+	std::string CreateCellName(int column, int _string) {
+		std::string symbol = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		std::string name = symbol[column] + std::to_string(_string + 1);
+		return name;
+	}
+
+	void SetCell(Cell& cell, int string, int column) {
+		cell.coord.SetString(string);
+		cell.coord.SetColumn(column);
+	}
+
+	friend std::ostream& operator << (std::ostream& out, Cell& cell) {
+		std::cout << " ";
+		if (cell.figure.GetName() == 'Z') {
+			if (cell.color == 1) {
+				std::cout << "-";
+			}
+			else {
+				std::cout << "*";
+			}
+		}
+		else {
+			std::cout << cell.figure.GetName();
+		}
+	}
+};
+
+
+class Board {
+private:
+	int size;
+	Cell** board;
+public:
+	class Iterator {
+		Cell* current;
+		int size;
+	public:
+		Iterator(Cell* board):current(board) {}
+
+		const Cell operator *() {
+			return *current;
+		}
+
+		const Cell operator ->() {
+			return *current;
+		}
+
+		bool operator == (Iterator it) const {
+			return current == it.current;
+		}
+
+		bool operator != (Iterator it) const {
+			return current != it.current;
+		}
+
+		Iterator operator ++() {
+			return current++;
+		}
+
+		Iterator operator --() {
+			return current--;
+		}
+
+		Iterator begin() const {
+			return Iterator(current);
+		}
+
+		Iterator end() const {
+			return Iterator(current+size);
+		}
+
+	};
+
+
+	Board(int size_) :  size(size_) {
+		CreateBoard();
+	}
+	~Board() {
+		delete[] board;
+	}
+	const Cell& operator [](Point newCoord)const {
+		return board[newCoord.GetString()][newCoord.GetColumn()];
+	}
+
+	Cell& operator [] (Point newCoord) {
+		return board[newCoord.GetString()][newCoord.GetColumn()];
+	}
+
+	class Proxy {
+	private:
+		Cell* board;
+	public:
+		Proxy(Cell* _array) : board(_array) { }
+		Cell operator[](int j) {
+			return board[j];
+		}
+	
+	};
+	Proxy operator[](int i) {
+		return Proxy(board[i]);
+	}
+
+
+
+	//Функция для создания шахматной доски
+	void CreateBoard() {
+		Color color = white;
+		for (int i = 0; i < size; i++) {
+			color = RelplaceColor(color);
+			for (int j = 0; j < size; j++) {
+				color = RelplaceColor(color);
+				Point point(i,j);
+				board[i][j] = Cell(point, color);
+			}
+		}
+	}
+
+	std::string CreatCoordColumn() {
+		std::string res;
+		std::string coordColumn = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		if (size <= 27) {
+			for (int i = 1; i < size; i++) {
+				if (i == size - 1) {
+					res = res + '|' + coordColumn[i] + '|';
+				}
+				else {
+					res = res + '|' + coordColumn[i];
+				}
+			}
+		}
+		else if (size <= 27 * 27) {
+			for (int i = 0; i <= (int)size / 27; i++) {
+				for (int j = 1; (j < size - i * 27 and j < 27); j++) {
+					if (j + i * 27 == size - 1) {
+						res = res + '|' + coordColumn[i] + coordColumn[j] + '|';
+					}
+					else {
+						res = res + '|' + coordColumn[i] + coordColumn[j];
+					}
+				}
+			}
+		}
+		return res;
+	}
+	
+
+	friend std::ostream& operator << (std::ostream& out, Board* board) {
+		std::cout << board->CreatCoordColumn() << std::endl;
+		for (int i = board->size; i >= 0; i--) {
+			std::cout << i + 1;
+			for (int j = 0; j < board->size; j++) {
+				std::cout<<board->board[i][j];
+
+			}
+			std::cout << " " << i + 1;
+			std::cout << "\n";
+		}
+		std::cout << board->CreatCoordColumn() << std::endl;
+	}
+}
+
+template <class T>
+class Match {
+	T gr;
+	Players* players;
+public:
+	Match(T gr_) :gr(gr_) {}
+};
+
+class GameRules {
+private:
+	Board board;
+public:
+	virtual void Move(Figure figure, Point newCoord, Point oldCoord) = 0;
+	virtual void Set(Figure figure, Point newCoord) {
+		if (!board.check(newCoord)) {
+			board[newCoord] = figure;
+		}
+	}
+	void Remove(Figure figure, Point oldCoord) {
+		if (board.Check(newCoord) {
+			board[oldCoord] = std::nullptr;
+		}
+	}
+};
+
+class QueensRules :public GameRules {
+	CheckHit ch;
+private:
+	void Set(Figure figure, Point newCoord) {
+		if (!CheckHit(newCoord)) {
+			board[newCoord] = figure;
+
+		}
+	}
+
+	bool CheckHit(Cell* cell) {
+		return !(cell->figure.name == 'Z');
+	}
+
+	bool CheckEmpty(Cell* cell) {
+		return cell->figure.name == 'Z';
+	}
+	void MoveQueen(Point PointQueen) {
+		bool isHit = !board.Check(newCoord);
+		HorizonMoving(PointQueen, isHit);
+		VerticalMoving(PointQueen, isHit);
+
+		DiagonalMoving(PointQueen, isHit);
+	}
+
+	//Функция для проверки количества королев на доске
+	int CheckBoard(Board* board) {
+		int numQueen = 0;
+		for (int i = 0; i < size; i++) {
+			for (int j = 0; j < size; j++) {
+				if (board->board[i][j]->figure.type == 'Q') {
+					numQueen += 1;
+				}
+			}
+		}
+		return numQueen;
+	}
+
+	void FigureHit(Point point, bool isHit) {
+		if (isHit) {
+			ch[point] += 1;
+		}
+		else {
+			ch[point] -= 1;
+		}
+	}
+
+	void HorizonMoving(Point point, bool isHit) {
+		Point point_ = point;
+		for (int i = 0; i < board->size; i++) {
+			point_.SetColumn(i);
+			if (board[point_] != board[point]) {
+				FigureHit(point_);
+			}
+		}
+	}
+
+	//Функция для королевы, которая бьёт все клетки по вертикали
+	void VerticalMoving(Point point, bool isHit) {
+		Point point_ = point;
+		for (int i = 0; i < board->size; i++) {
+			point_.SetString(i);
+			if (board[point_] != board[point]) {
+				FigureHit(point_);
+			}
+		}
+	}
+
+	//Функция для королевы, которая бьёт все клетки по диагонали
+	void DiagonalMoving(Point point, bool isHit) {
+		Point point_ = point;
+		for (int i = 0; i < board->size; i++) {
+
+			if (point.GetColumn() + i < board->size && point.GetString() + i < board->size) {
+				point_.SetColumn(point.GetColumn() + i);
+				point_.SetString(point.GetString() + i);
+				FigureHit(point_);
+			}
+			if (point.GetString() - i >= 0 && point.GetColumn() - i >= 0) {
+				point_.SetColumn(point.GetColumn() - i);
+				point_.SetString(point.GetString() - i);
+				FigureHit(point_);
+			}
+			if (point.GetString() - i >= 0 && point.GetColumn() + i < board->size) {
+				point_.SetColumn(point.GetColumn() + i);
+				point_.SetString(point.GetString() - i);
+				FigureHit(point_);
+			}
+			if (point.GetString() + i < board->size && point.GetColumn() - i >= 0) {
+				point_.SetColumn(point.GetColumn() - i);
+				point_.SetString(point.GetString() + i);
+				FigureHit(point_);
+			}
+		}
+	}
+};
+
+
+enum Rule {
+	classicChess = 1,
+	classicCheckers = 2,
+	queen = 3
+};
+
+
+class RulesForQueen {
+private:
+	Board* board;
+	int size;
+	int countQueen;
+
+	//Функция, которая решает какую королеву надо изменить и возвращает индекс этой королевы
+	int ReturnPreviousQueen(ChessBoard* board, Cell* QueensInCell[8], int numPlacedQueens) {
+		Point point;
+		do {
+			point = QueensInCell[numPlacedQueens]->coord;
+			numPlacedQueens -= 1;
+		} while (point.x > 8);
+		return numPlacedQueens;
+	}
+
+	//Функция для клетки доски, которая ставит королеву на неё и бьёт все клетки по горизонтали, вертикали и диагонали
+
+	//Рекурсивная функция, которая ставит королеву и вызывает функцию для постановки следующей королевы
+	ChessBoard* PartingQueen(ChessBoard* board, int numPlacedQueens, int numQueen, int column, int string, Cell* QueensInCell[8]) {
+		if (CheckBoard(board) == 8) {
+			return board;
+		}
+		for (int i = 0; i < 8; i++) {
+			if (CheckEmpty(board->board[string][i]) && board->board[string][i]->checkHit == false) {
+				MoveQueen(board, board->board[string][i], 'Q');
+				Cell* cell = new Cell;
+				GetCell(cell, string, i);
+				QueensInCell[numQueen] = cell;
+				if (string < 8) {
+					board = PartingQueen(board, numPlacedQueens, numQueen, 0, string + 1, QueensInCell);
+					if (CheckBoard(board) == 8) {
+						return board;
+					}
+					MoveQueen(board, board->board[string][i], 'Z');
+				}
+			}
+		}
+		return board;
+	}
+
+	//Функция, вызывающая реурсивную функцию. Возвращает доску с расставленными королевами
+	ChessBoard* CallPartingQueen(ChessBoard* board, int numPlacedQueens) {
+		Cell* QueensInCell[8];
+		board = PartingQueen(board, numPlacedQueens, 0, 0, 0, QueensInCell);
+		return board;
+	}
+
+public:
+	RulesForQueen(int size_, int countQueen_) : size(size_) countQueen(countQueen_), board(new* board[string][column]) {}
+	~RulesForQueen() {
+		delete[] board;
+	}
+
+	void Play() {
+		CallPartingQueen(board, numPlacedQueens);
+		std::cout << board << "\n";
+	}
+
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Тесты 
+/* НАПИСАТЬ ИТЕРАТОРЫ !!!!!!!!!!!!!!!!!! до начала  мая
+*/
+
+
+
+
+//Функция, проверяющая вводимые значения
+bool CheckHVD(std::string isTestMoving, char HVD) {
+	for (int i = 0; i < isTestMoving.length(); i++) {
+		if (isTestMoving[i] == HVD) {
+			return true;
+		}
+	}
+	return false;
+}
+
+//Проверка по горизонтали
+bool TestHorizontal(ChessBoard* board, Point pointQueen, Point pointQueenHorizontal) {
+	board->board[pointQueen.x][pointQueen.y]->figure.type = 'Q';
+	HorizonMovingQueen(board, board->board[pointQueen.x][pointQueen.y]);
+	PrintChessBoard(board);
+	std::cout << CreateCellName(pointQueenHorizontal.y, pointQueenHorizontal.x) << '\n';
+	if (board->board[pointQueenHorizontal.x][pointQueenHorizontal.y]->checkHit == false) {
+		return true;
+	}
+	return false;
+}
+
+//Проверка по вертикали
+bool TestVertical(ChessBoard* board, Point pointQueen, Point pointQueenVertical) {
+	board->board[pointQueen.x][pointQueen.y]->figure.type = 'Q';
+	VerticalMovingQueen(board, board->board[pointQueen.x][pointQueen.y]);
+	PrintChessBoard(board);
+	std::cout << CreateCellName(pointQueenVertical.y, pointQueenVertical.x) << '\n';
+	if (board->board[pointQueenVertical.x][pointQueenVertical.y]->checkHit == false) {
+		return true;
+	}
+	return false;
+}
+
+//Проверка по диагонали
+bool TestDiagonal(ChessBoard* board, Point pointQueen, Point pointQueenDiagonal) {
+	board->board[pointQueen.x][pointQueen.y]->figure.type = 'Q';
+	DiagonalMovingQueen(board, board->board[pointQueen.x][pointQueen.y]);
+	PrintChessBoard(board);
+	std::cout << CreateCellName(pointQueenDiagonal.y, pointQueenDiagonal.x) << '\n';
+	if (board->board[pointQueenDiagonal.x][pointQueenDiagonal.y]->checkHit == false) {
+		std::cout << true << std::endl;
+		return true;
+	}
+	return false;
+}
+
+//Функция для задания координат двух проверяемых королев
+bool TestQueenMoving(ChessBoard* board) {
+	bool isTestTrue = true;
+	Point pointQueen;
+	std::cin >> pointQueen.x >> pointQueen.y;
+	std::string isTestMoving;
+	std::cout << "Start test? H or V or D: ";
+	std::cin >> isTestMoving;
+	if (CheckHVD(isTestMoving, 'H') or CheckHVD(isTestMoving, 'h')) {
+		Point pointQueenHorizontal;
+		std::cin >> pointQueenHorizontal.x >> pointQueenHorizontal.y;
+		bool expectedResult;
+		std::cin >> expectedResult;
+		if (TestHorizontal(board, pointQueen, pointQueenHorizontal) != expectedResult) {
+			return false;
+		}
+	}
+	if (CheckHVD(isTestMoving, 'V') or CheckHVD(isTestMoving, 'v')) {
+		Point pointQueenVertical;
+		std::cin >> pointQueenVertical.x >> pointQueenVertical.y;
+		bool expectedResult;
+		std::cin >> expectedResult;
+		std::cout << expectedResult;
+		if (TestVertical(board, pointQueen, pointQueenVertical) != expectedResult) {
+			return false;
+		}
+	}
+	if (CheckHVD(isTestMoving, 'D') or CheckHVD(isTestMoving, 'd')) {
+		Point pointQueenDiagonal;
+		std::cin >> pointQueenDiagonal.x >> pointQueenDiagonal.y;
+		bool expectedResult;
+		std::cin >> expectedResult;
+		if (TestDiagonal(board, pointQueen, pointQueenDiagonal) != expectedResult) {
+			return false;
+		}
+	}
+	return isTestTrue;
+}
+
+int main() {
+	char isTest;
+	ChessBoard* board = new ChessBoard;
+	CreateBoard(board);
+	std::cout << "Start test? Y or N: ";
+	std::cin >> isTest;
+	if (isTest == 'Y' || isTest == 'y') {
+		bool test = TestQueenMoving(board);
+		if (test) {
+			std::cout << "Test passed successfully" << std::endl;
+		}
+		else {
+			std::cout << "Test failed" << std::endl;
+		}
+	}
+	else {
+		int numPlacedQueens;
+		std::cin >> numPlacedQueens;
+		board = CallPartingQueen(board, numPlacedQueens);
+		PrintChessBoard(board);
+		int a;
+		std::cin >> a;
+	}
+	return 0;
+}
+
+
+//Структура "Фигура" хранит данные о цвете, тип фигуры и отношение к другим фигурам
+/*
+struct Figure {
+	char type = 'Z';
+	Color color;
+};*/
+
+//Структура координат фигуры
+/*
+struct Point {
+	int x;
+	int y;
+};*/
+
+//Структура "Клетка" хранит данные о координатах клетки, находиться ли клетка
+//под боем и сколько раз её бьют, структуру данных "Фигура" и цвет клетки
+
+/*?struct Cell {
+	Point coord;
+	bool checkHit = false;
+	int hit = 0;
+	Figure figure;
+	Color color;
+};
+*/
+//Стурктура "Шахматная доска" хранит массив ячеек
+
+
+
+
+// Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
+// Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
+
+// Советы по началу работы 
+//   1. В окне обозревателя решений можно добавлять файлы и управлять ими.
+//   2. В окне Team Explorer можно подключиться к системе управления версиями.
+//   3. В окне "Выходные данные" можно просматривать выходные данные сборки и другие сообщения.
+//   4. В окне "Список ошибок" можно просматривать ошибки.
+//   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
+//   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
